@@ -2,11 +2,10 @@
 
 import { Button } from "@/components/ui/button"
 import  Link  from 'next/link'
-import  ReactDOM  from "react-dom/client"
-import { Card, CardContent } from "@/components/ui/card"
+// import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/Card"
 import { ArrowUpRight, BellIcon as Bull, LineChartIcon as ChartLineUp, Coins, Rocket, Sparkles, Send, Twitter, Mail } from 'lucide-react'
 import { useState } from "react"
-import BullMarketDetector from "./page3"
 
 export default function Component() {
   const [isHovered, setIsHovered] = useState(false)
