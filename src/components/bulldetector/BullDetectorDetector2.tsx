@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from "react"
-import { BellIcon as Bull, AlertCircle, ArrowRight, LockIcon, CoinsIcon, UsersIcon } from 'lucide-react'
+import { BellIcon as Bull, AlertCircle, ArrowRight, LockIcon, CoinsIcon, UsersIcon, ImageIcon, TwitterIcon } from 'lucide-react'
 
 interface TokenAnalysis {
   name: string
@@ -33,24 +33,33 @@ interface TokenAnalysis {
   }
 }
 
+interface GeneratedMeme {
+  imageUrl: string
+  caption: string
+}
+
 export default function BullMarketDetector() {
   const [contractAddress, setContractAddress] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [analysis, setAnalysis] = useState<TokenAnalysis | null>(null)
   const [error, setError] = useState("")
+  const [generatedMeme, setGeneratedMeme] = useState<GeneratedMeme | null>(null)
+  const [isGeneratingMeme, setIsGeneratingMeme] = useState(false)
+  const [isPostingToTwitter, setIsPostingToTwitter] = useState(false)
 
   const analyzeToken = async () => {
     setIsLoading(true)
     setError("")
+    setGeneratedMeme(null)
     
     try {
       // Here you would integrate with NEAR blockchain APIs
       // This is a mock response for demonstration
       const mockAnalysis: TokenAnalysis = {
-        name: "BullPalooza Token",
-        symbol: "BULL",
+        name: "BullPaloozaAI Token",
+        symbol: "$BAI",
         totalSupply: "1,000,000,000",
-        owner: "near.deployer.testnet",
+        owner: "bai.deployer.testnet",
         deployerHistory: {
           totalDeployments: 3,
           riskLevel: 'Low'
@@ -60,7 +69,7 @@ export default function BullMarketDetector() {
           liquidityUSD: "$100,000",
           holders: 1500,
           largestHolder: {
-            address: "near.whale.testnet",
+            address: "bullpaloozadev.whale.testnet",
             percentage: 5.5
           }
         },
@@ -70,9 +79,9 @@ export default function BullMarketDetector() {
           lockupPeriod: "6 months"
         },
         socials: {
-          telegram: "t.me/bullpalooza",
-          twitter: "twitter.com/bullpalooza",
-          website: "bullpalooza.near"
+          telegram: "t.me/bullpaloozaai",
+          twitter: "twitter.com/bullpalooza_ai",
+          website: "bullpaloozaai.site"
         }
       }
 
@@ -82,6 +91,43 @@ export default function BullMarketDetector() {
       setError("Failed to analyze token. Please try again.")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const generateMeme = async () => {
+    if (!analysis) return
+
+    setIsGeneratingMeme(true)
+    try {
+      // Here you would call your AI service to generate a meme and caption
+      // This is a mock response for demonstration
+      const mockMeme: GeneratedMeme = {
+        imageUrl: "/placeholder.svg?height=300&width=300",
+        caption: `${analysis.name} ($${analysis.symbol}) is on a bull run! 🚀 Market cap: ${analysis.tokenMetrics.marketCap} | Holders: ${analysis.tokenMetrics.holders} | #CryptoMoon`
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 2000)) // Simulate API call
+      setGeneratedMeme(mockMeme)
+    } catch (err) {
+      setError("Failed to generate meme. Please try again.")
+    } finally {
+      setIsGeneratingMeme(false)
+    }
+  }
+
+  const postToTwitter = async () => {
+    if (!generatedMeme) return
+
+    setIsPostingToTwitter(true)
+    try {
+      // Here you would integrate with Twitter API to post the meme
+      // This is a mock implementation
+      await new Promise(resolve => setTimeout(resolve, 1500)) // Simulate API call
+      alert("Meme posted to Twitter successfully!")
+    } catch (err) {
+      setError("Failed to post to Twitter. Please try again.")
+    } finally {
+      setIsPostingToTwitter(false)
     }
   }
 
@@ -248,6 +294,39 @@ export default function BullMarketDetector() {
                 ))}
               </div>
             )}
+
+            {/* Meme Generation */}
+            <div className="space-y-4">
+              <button
+                onClick={generateMeme}
+                disabled={isGeneratingMeme}
+                className="w-full px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md disabled:opacity-50"
+              >
+                {isGeneratingMeme ? 'Generating Meme...' : 'Generate Meme'}
+              </button>
+
+              {generatedMeme && (
+                <div className="space-y-4">
+                  <div className="aspect-square relative">
+                    <img
+                      // src={generatedMeme.imageUrl}
+                      src="https://g-qhkk9ltimrg.vusercontent.net/placeholder.svg?height=300&width=300"
+                      alt="Generated meme"
+                      className="w-full h-full object-cover rounded-md"
+                    />
+                  </div>
+                  <p className="text-sm text-gray-300">{generatedMeme.caption}</p>
+                  <button
+                    onClick={postToTwitter}
+                    disabled={isPostingToTwitter}
+                    className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <TwitterIcon className="h-4 w-4" />
+                    {isPostingToTwitter ? 'Posting...' : 'Post to Twitter'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         ) : null}
       </div>
