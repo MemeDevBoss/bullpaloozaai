@@ -44,18 +44,12 @@ interface BatchTransfer {
     ft_approve: (args: { spender_id: string; amount: string; expires_at?: number }) => Promise<void>;
     ft_burn: (args: { amount: string }) => Promise<void>;
     ft_batch_transfer: (args: { transfers: BatchTransfer[] }) => Promise<void>;
-    ft_transfer_from: (args: { 
-        owner_id: string;
-        receiver_id: string; 
-        amount: string; 
-        memo?: string 
-      }) => Promise<void>;
   }
 
 export default function ContractInteraction() {
   // Constants
-  const CONTRACT_ID = "hello4.baideployer.testnet"
-  const WALLET_CONNECT_PROJECT_ID = "wallet_connect_project_id_here"
+  const CONTRACT_ID = "hello2.baideployer.testnet"
+  const WALLET_CONNECT_PROJECT_ID = "your_project_id_here"
 
   // States
   const [selector, setSelector] = useState<any>(null)
@@ -68,9 +62,7 @@ export default function ContractInteraction() {
   const [balance, setBalance] = useState<string>('')
   const [nearBalance, setNearBalance] = useState<string>('0')
   
-//   const [activeTab, setActiveTab] = useState<'transfer' | 'approve' | 'transferfrom' | 'burn' | 'batch'>('transfer')
-const [activeTab, setActiveTab] = useState<'transfer' | 'approve' | 'transferfrom' | 'burn' | 'batch'>('transfer');
-
+  const [activeTab, setActiveTab] = useState<'transfer' | 'approve' | 'burn' | 'batch'>('transfer')
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -82,10 +74,6 @@ const [activeTab, setActiveTab] = useState<'transfer' | 'approve' | 'transferfro
   const [burnAmount, setBurnAmount] = useState<string>('')
   const [amountError, setAmountError] = useState<string | null>(null);
   const [processingTx, setProcessingTx] = useState<boolean>(false);
-  const [initialized, setInitialized] = useState(false);
-  const [ownerId, setOwnerId] = useState<string>('');
-  const [allowance, setAllowance] = useState<string>('0');
-
 
 
 
@@ -155,22 +143,6 @@ const [activeTab, setActiveTab] = useState<'transfer' | 'approve' | 'transferfro
             }]
           });
         },
-
-        ft_transfer_from: async (args) => {
-            return wallet.signAndSendTransaction({
-              signerId: accountId,
-              receiverId: CONTRACT_ID,
-              actions: [{
-                type: 'FunctionCall',
-                params: {
-                  methodName: 'ft_transfer_from',
-                  args,
-                  gas: '30000000000000',
-                  deposit: '1'
-                }
-              }]
-            });
-          },
   
         ft_approve: async (args) => {
           return wallet.signAndSendTransaction({
@@ -394,37 +366,44 @@ const [activeTab, setActiveTab] = useState<'transfer' | 'approve' | 'transferfro
     
      
 
-      async function handleTransfer() {
-        if (!contract || !accountId || !receiverId || !amount) return;
-        setIsLoading(true);
-        setError(null);
-        setSuccess(null);
-      
-        try {
-          const tokenAmount = parseTokenAmount(amount, metadata?.decimals || 18);
-          
-          console.log('Initiating transfer:', { receiverId, amount: tokenAmount });
-      
-          await contract.ft_transfer({
-            receiver_id: receiverId,
-            amount: tokenAmount,
-            memo: 'Transfer from web interface'
-          }).then(async () => {
-            // Wait for transaction to be mined
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Refresh balances
-            await fetchTokenInfo(contract, accountId);
-            await fetchNearBalance(selector, accountId);
-            
-            setSuccess('Transfer successful! Transaction has been confirmed.');
-            setReceiverId('');
-            setAmount('');
-          }).catch((err: any) => {
-            throw err;
-          });
-          
+async function handleTransfer() {
+  if (!contract || !accountId || !receiverId || !amount) return;
+  setIsLoading(true);
+  setError(null);
+  setSuccess(null);
 
+  try {
+    // Convert input amount to token decimal format
+    const tokenAmount = parseTokenAmount(amount, metadata?.decimals || 18);
+    
+    // Check balance
+    const currentBalance = BigInt(balance);
+    const transferAmount = BigInt(tokenAmount);
+    if (transferAmount > currentBalance) {
+      setError('Insufficient balance');
+      return;
+    }
+
+    console.log('Initiating transfer:', { receiverId, amount: tokenAmount });
+
+    const result = await contract.ft_transfer({
+      receiver_id: receiverId,
+      amount: tokenAmount,
+      memo: 'Transfer from web interface'
+    });
+
+    console.log('Transfer result:', result);
+
+    // Wait for transaction to be mined
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Refresh balances
+    await fetchTokenInfo(contract, accountId);
+    await fetchNearBalance(selector, accountId);
+    
+    setSuccess('Transfer successful! Transaction has been confirmed.');
+    setReceiverId('');
+    setAmount('');
   } catch (err: any) {
     console.error('Transfer error:', err);
     setError(err.message || 'Transfer failed. Please try again.');
@@ -432,40 +411,6 @@ const [activeTab, setActiveTab] = useState<'transfer' | 'approve' | 'transferfro
     setIsLoading(false);
   }
 }
-
-async function handleTransferFrom() {
-    if (!contract || !accountId || !ownerId || !receiverId || !amount) return;
-    
-    setIsLoading(true);
-    setError(null);
-    setSuccess(null);
-  
-    try {
-      await contract.ft_transfer_from({
-        owner_id: ownerId,
-        receiver_id: receiverId,
-        amount: parseTokenAmount(amount, metadata?.decimals || 18),
-        memo: 'Transfer from web interface'
-      });
-  
-      // Wait for transaction to be mined
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Refresh balances
-      await fetchTokenInfo(contract, accountId);
-      await fetchNearBalance(selector, accountId);
-      
-      setSuccess('Transfer from successful!');
-      setOwnerId('');
-      setReceiverId('');
-      setAmount('');
-    } catch (err: any) {
-        console.error('Transfer from error:', err);
-        setError(err.message || 'Transfer from failed. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-    }
 
 // Add validation function
 function validateAmount(value: string, currentBalance: string) {
@@ -567,40 +512,8 @@ function validateAmount(value: string, currentBalance: string) {
     
       // Initialize on mount
       useEffect(() => {
-        let mounted = true;
-      
-        if (!selector && !initialized) {
-          initNear()
-            .then(() => {
-              if (mounted) {
-                setInitialized(true);
-              }
-            })
-            .catch((err) => {
-              console.error('Near initialization failed:', err);
-              if (mounted) {
-                setError('Failed to initialize NEAR');
-              }
-            });
-        }
-      
-        return () => {
-          mounted = false;
-        };
-      }, []); // Empty dependency array
-
-
-      useEffect(() => {
-        if (selector) {
-          selector.on("accountsChanged", async (accounts: any) => {
-            const _accountId = accounts?.[0]?.accountId;
-            setAccountId(_accountId ?? null);
-            if (_accountId) {
-              await setupContract(selector, _accountId);
-            }
-          });
-        }
-      }, [selector]);
+        initNear();
+      }, []);
 
      // Add helper functions
 function parseTokenAmount(amount: string, decimals: number = 18): string {
@@ -689,12 +602,11 @@ function TransactionStatus({ isLoading, error, success }: {
                 <h2 className="text-2xl font-bold">NEAR Token Interface</h2>
               </div>
       
-              {/* {!selector || (!accountId && isLoading) ? ( */}
-              {!selector && !initialized ? (
-          <div className="text-center py-4">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-green-400" />
-            <p className="mt-2">Initializing...</p>
-          </div>
+              {!selector ? (
+                <div className="text-center py-4">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-green-400" />
+                  <p className="mt-2">Initializing...</p>
+                </div>
               ) : !accountId ? (
                 <button 
                   onClick={handleConnect}
@@ -736,9 +648,7 @@ function TransactionStatus({ isLoading, error, success }: {
                   )}
       
                   <div className="flex space-x-2 mb-6">
-
-                    {/* {(['transfer', 'approve', 'burn', 'batch'] as const).map((tab) => ( */}
-                    {(['transfer', 'approve', 'transferfrom' ,'burn', 'batch'] as const).map((tab) => (
+                    {(['transfer', 'approve', 'burn', 'batch'] as const).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
@@ -804,171 +714,9 @@ function TransactionStatus({ isLoading, error, success }: {
                     )}
       
                     {/* ... (keep other tabs the same) ... */}
-                    {/* Approve Tab */}
-                {activeTab === 'approve' && (
-                  <>
-                    <input
-                      placeholder="Spender ID"
-                      value={spenderId}
-                      onChange={(e) => setSpenderId(e.target.value)}
-                      className="w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                    <input
-                      placeholder="Amount to Approve"
-                      value={approvalAmount}
-                      onChange={(e) => setApprovalAmount(e.target.value)}
-                      className="w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                      type="number"
-                      step="0.000000000000000001"
-                    />
-                    <button
-                      onClick={handleApprove}
-                      disabled={isLoading || !spenderId || !approvalAmount}
-                      className="w-full px-4 py-3 bg-green-500 hover:bg-green-600 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
-                      {isLoading ? 'Processing...' : 'Approve'}
-                    </button>
-                  </>
-                )}
-
-                {/* {Transfer from tab} */}
-                {/* Transfer From Tab */}
-{activeTab === 'transferfrom' && (
-  <>
-    <div className="space-y-4">
-      <input
-        placeholder="Owner ID"
-        value={ownerId}
-        onChange={(e) => setOwnerId(e.target.value)}
-        className="w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-      />
-      <input
-        placeholder="Receiver ID"
-        value={receiverId}
-        onChange={(e) => setReceiverId(e.target.value)}
-        className="w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-      />
-      <div className="space-y-1">
-        <input
-          placeholder="Amount"
-          value={amount}
-          onChange={(e) => {
-            setAmount(e.target.value);
-            validateAmount(e.target.value, allowance);
-          }}
-          className={`w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 
-            ${amountError ? 'focus:ring-red-500 border-red-500' : 'focus:ring-green-500'}`}
-          type="number"
-          step="any"
-        />
-        {amountError && (
-          <div className="text-sm text-red-500">
-            {amountError}
-          </div>
-        )}
-      </div>
-      <button
-        onClick={handleTransferFrom}
-        disabled={isLoading || !ownerId || !receiverId || !amount}
-        className="w-full px-4 py-3 bg-green-500 hover:bg-green-600 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Processing Transfer From...</span>
-          </>
-        ) : (
-          <>
-            <Send className="h-5 w-5" />
-            <span>Transfer From</span>
-          </>
-        )}
-      </button>
-    </div>
-  </>
-)}
-  
-                {/* Burn Tab */}
-                {activeTab === 'burn' && (
-                  <>
-                    <input
-                      placeholder="Amount to Burn"
-                      value={burnAmount}
-                      onChange={(e) => setBurnAmount(e.target.value)}
-                      className="w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                      type="number"
-                      step="0.000000000000000001"
-                    />
-                    <button
-                      onClick={handleBurn}
-                      disabled={isLoading || !burnAmount}
-                      className="w-full px-4 py-3 bg-green-500 hover:bg-green-600 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Flame className="h-5 w-5" />}
-                      {isLoading ? 'Processing...' : 'Burn Tokens'}
-                    </button>
-                  </>
-                )}
-  
-                {/* Batch Transfer Tab */}
-                {activeTab === 'batch' && (
-                  <>
-                    {batchTransfers.map((transfer, index) => (
-                      <div key={index} className="flex space-x-2">
-                        <input
-                          placeholder="Receiver ID"
-                          value={transfer.receiver_id}
-                          onChange={(e) => updateBatchTransfer(index, 'receiver_id', e.target.value)}
-                          className="flex-1 px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-                        <input
-                          placeholder="Amount"
-                          value={transfer.amount}
-                          onChange={(e) => updateBatchTransfer(index, 'amount', e.target.value)}
-                          className="flex-1 px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                          type="number"
-                          step="0.000000000000000001"
-                        />
-                      </div>
-                    ))}
-                    <button
-                      onClick={addBatchTransfer}
-                      className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center justify-center gap-2"
-                    >
-                      <Plus className="h-5 w-5" />
-                      Add Transfer
-                    </button>
-                    <button
-                      onClick={handleBatchTransfer}
-                      disabled={isLoading || batchTransfers.some(t => !t.receiver_id || !t.amount)}
-                      className="w-full px-4 py-3 bg-green-500 hover:bg-green-600 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-                      {isLoading ? 'Processing...' : 'Execute Batch Transfer'}
-                    </button>
-                  </>
-                )}
-              </div>
-            </>
-          )}
-  
-          {error && (
-            <div className="mt-4 p-4 bg-red-500/20 border border-red-500 rounded-lg flex items-center gap-2 text-red-400">
-              <AlertCircle className="h-5 w-5" />
-              {error}
-            </div>
-          )}
-  
-          {success && (
-            <div className="mt-4 p-4 bg-green-500/20 border border-green-500 rounded-lg flex items-center gap-2 text-green-400">
-              <ArrowRight className="h-5 w-5" />
-              {success}
-            </div>
-          )}
                   </div>
-                
-              
+                </>
+              )}
       
               <TransactionStatus 
                 isLoading={isLoading} 
@@ -977,6 +725,6 @@ function TransactionStatus({ isLoading, error, success }: {
               />
             </div>
           </div>
-        
+        </div>
       );
 }
